@@ -1,0 +1,30 @@
+[package]
+name = "company_factory"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "AIFluxx company factory slice. Not Warp Factories."
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+hex.workspace = true
+hmac = "0.12"
+http.workspace = true
+instant.workspace = true
+jsonwebtoken = "9"
+rand.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+url.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+rsa = { version = "0.9", features = ["sha2", "pem"] }
+tempfile.workspace = true

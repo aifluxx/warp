@@ -164,6 +164,28 @@ docker compose stop
 
 Set `TTYD_USERNAME` and `TTYD_PASSWORD` in `.env` before exposing the port past localhost. The committed template leaves them empty and publishes on `127.0.0.1` only.
 
+## Company factory slice
+
+`company_factory` is a separate company sign-in page. It is not Warp Factories, not the Warp contributions dashboard at `build.warp.dev`, and not the headless TUI above. It does not sign a person into Warp's hosted account service, and it does not open a shell.
+
+Run it from this repository:
+
+```bash
+export FACTORY_SESSION_SECRET="$(openssl rand -base64 32)"
+export FACTORY_PUBLIC_URL=http://127.0.0.1:8792
+export FACTORY_BIND=127.0.0.1:8792
+export FACTORY_REPO_ID=warp
+export FACTORY_REPO_ROOT="$PWD"
+export OIDC_ISSUER=https://your-company-identity-issuer
+export OIDC_CLIENT_ID=your-client-id
+export OIDC_CLIENT_SECRET=your-client-secret
+cargo run -p company_factory
+```
+
+Open `http://127.0.0.1:8792`. Empty names in [`deploy/factory/.env.example`](deploy/factory/.env.example) are the settings still required. The process refuses to start without the session secret, public URL, repository id, and repository directory. Without `OIDC_ISSUER` and `OIDC_CLIENT_ID`, the page stays up and every workspace request is refused. The identity provider must issue RS256 ID tokens. No provider is included.
+
+The personal model key is typed into the page after sign-in. It stays in memory for that sign-in only. There is no shared model key. The repository action lists visible names in `FACTORY_REPO_ROOT` and does not call a model provider. Restarting the process ends every sign-in. Nothing here changes DNS, certificates, or the public name `factory.aifluxx.co.za`.
+
 ## Joining the Team
 
 Interested in joining the team? See our [open roles](https://www.warp.dev/careers).
