@@ -31,5 +31,6 @@
 
 ## Notes
 
-- Status in spec.md is Blocked. The missing account service is recorded in Assumptions. Planning must not publish a terminal stand-in.
-- Validation iteration 1 passed. No clarification markers were required: the request already says to stop rather than publish a substitute.
+- Updated after Greg's 08:13 SAST build instruction. The earlier "do not publish a substitute terminal" boundary remains in FR-007 and FR-008.
+- Parent-computer sign-in (SC-006) is still open. Cloud tests do not close it.
+- Validation iteration 1 of this revision passed. No clarification markers remain.
