@@ -309,12 +309,14 @@ async fn unsigned_requests_are_refused_when_sign_in_is_not_configured() {
     assert_eq!(login.status(), StatusCode::SERVICE_UNAVAILABLE);
     let body = login.json::<Value>().await.unwrap();
     assert_eq!(body["error"], "company_sign_in_not_configured");
-    assert!(
-        body["missing"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| item == "OIDC_ISSUER")
+    assert_eq!(
+        body["missing"],
+        json!([
+            "OIDC_ISSUER",
+            "OIDC_CLIENT_ID",
+            "OIDC_CLIENT_SECRET",
+            "FACTORY_ALLOWED_DOMAIN"
+        ])
     );
 
     let logout = harness

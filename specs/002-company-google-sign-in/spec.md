@@ -3,13 +3,13 @@
 **Feature Branch**: `002-company-google-sign-in`  
 **Created**: 2026-11-08  
 **Status**: In review  
-**Input**: User description: "Prepare the company factory page for Google Workspace sign-in restricted to the company domain, and a VPS procedure for factory.aifluxx.co.za. Do not publish it from this session. Do not accept any Google account. Do not use Warp's account or a Warp API key. Keep the headless terminal private."
+**Input**: User description: "Prepare the company factory page at factory.aifluxx.co.za for Google Workspace sign-in restricted to the aifluxx.com hosted domain, and a VPS procedure. Do not publish it from this session. Do not accept any Google account. Do not use Warp's account, a Warp API key, or an existing production sign-in client. Keep the headless terminal private."
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Sign in with the company Google account (Priority: P1)
 
-A person at the company opens the factory page and signs in with the company's existing Google sign-in. They reach the workspace entry only when the signed-in address belongs to the company domain.
+A person at the company opens the factory page and signs in with a new company Google client. They reach the workspace entry only when the signed-in address is a verified `aifluxx.com` address. The public site name is not that domain.
 
 **Why this priority**: A public page that accepts every Google account would mix outsiders into the company workspace.
 
@@ -17,8 +17,8 @@ A person at the company opens the factory page and signs in with the company's e
 
 **Acceptance Scenarios**:
 
-1. **Given** the company domain is configured, **When** a person with a verified company address completes Google sign-in, **Then** the workspace entry opens.
-2. **Given** the same page, **When** a personal Google account completes the Google prompt, **Then** no session is created.
+1. **Given** company sign-in is configured, **When** a person with a verified `aifluxx.com` address completes Google sign-in, **Then** the workspace entry opens.
+2. **Given** the same page, **When** a personal Google account, or an account on another domain, completes the Google prompt, **Then** no session is created.
 3. **Given** the person is signed in, **When** they sign out, **Then** the workspace entry refuses them.
 
 ---
@@ -40,7 +40,8 @@ The operator can place the page on the company server behind the company name. T
 
 ### Edge Cases
 
-- The company domain setting is missing. Sign-in does not start.
+- The company domain setting is missing. Sign-in does not start, and the sign-in page names the missing settings.
+- An address at `aifluxx.co.za` is not an `aifluxx.com` company account.
 - The Google proof is altered, unsigned, or for a different application. No session is created.
 - The hosted domain and the email domain disagree. No session is created.
 - An address in a look-alike domain is refused.
@@ -51,8 +52,8 @@ The operator can place the page on the company server behind the company name. T
 
 ### Functional Requirements
 
-- **FR-001**: Sign-in MUST use the company's Google sign-in and MUST require a verified email in the configured company domain.
-- **FR-002**: A Google account outside that domain MUST NOT receive a session.
+- **FR-001**: Sign-in MUST use a new company Google client and MUST require a verified email in the `aifluxx.com` hosted domain.
+- **FR-002**: A Google account outside that hosted domain MUST NOT receive a session. An existing production sign-in client MUST stay unchanged.
 - **FR-003**: The page MUST NOT treat a Warp login or a Warp API key as company sign-in.
 - **FR-004**: Unsigned visitors MUST NOT receive a shell or the workspace inventory.
 - **FR-005**: The public company name MUST serve this page only, and MUST NOT serve the headless terminal.
@@ -60,7 +61,7 @@ The operator can place the page on the company server behind the company name. T
 
 ### Key Entities
 
-- **Company domain**: The single domain the operator names. Personal Google accounts are outside it.
+- **Company domain**: `aifluxx.com`, the hosted domain on the company Google account. The site name `factory.aifluxx.co.za` is a different name.
 - **Company session**: A signed-in company address. It ends on sign-out or restart.
 - **Factory page**: The company page. It is not Warp's factory product and not the terminal.
 
@@ -68,7 +69,7 @@ The operator can place the page on the company server behind the company name. T
 
 ### Measurable Outcomes
 
-- **SC-001**: A company Google account can open the workspace entry, and a personal Google account cannot.
+- **SC-001**: An `aifluxx.com` Google account can open the workspace entry, and a personal Google account cannot.
 - **SC-002**: An unsigned request for the workspace is refused.
 - **SC-003**: The company name, once published, shows this page and not the terminal.
 - **SC-004**: A parent-computer signed-in browser test of this revision is still required before it is called working. Publishing the name is a later parent action.

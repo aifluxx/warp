@@ -177,13 +177,13 @@ export FACTORY_BIND=127.0.0.1:8792
 export FACTORY_REPO_ID=warp
 export FACTORY_REPO_ROOT="$PWD"
 export OIDC_ISSUER=https://accounts.google.com
-export OIDC_CLIENT_ID=your-client-id
-export OIDC_CLIENT_SECRET=your-client-secret
-export FACTORY_ALLOWED_DOMAIN=aifluxx.co.za
+export OIDC_CLIENT_ID=your-new-client-id
+export OIDC_CLIENT_SECRET=your-new-client-secret
+export FACTORY_ALLOWED_DOMAIN=aifluxx.com
 cargo run -p company_factory
 ```
 
-Open `http://127.0.0.1:8792`. Empty names in [`deploy/factory/.env.example`](deploy/factory/.env.example) are the settings still required. The process refuses to start without the session secret, public URL, repository id, and repository directory. Without `OIDC_ISSUER` and `OIDC_CLIENT_ID`, the page stays up and every workspace request is refused. With those two set, `FACTORY_ALLOWED_DOMAIN` is also required. Sign-in accepts a verified address only when the token's hosted domain and email domain both match it. A personal Google account is refused. The identity provider must issue RS256 ID tokens. For Google Workspace use issuer `https://accounts.google.com`. No provider and no client secret are included.
+Open `http://127.0.0.1:8792`. Empty names in [`deploy/factory/.env.example`](deploy/factory/.env.example) are the settings still required. The process refuses to start without the session secret, public URL, repository id, and repository directory, and it refuses a listen address that is not loopback. Until `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `FACTORY_ALLOWED_DOMAIN` are set, `/login` returns 503 and names those four settings. No account is created. Sign-in accepts a verified address only when the token's hosted domain and email domain both equal `FACTORY_ALLOWED_DOMAIN`. For this company that value is `aifluxx.com`. The public site name `factory.aifluxx.co.za` is not the hosted domain. A personal Google account is refused. Google must issue RS256 ID tokens for a new web client. Do not reuse an existing production client. No client secret is included.
 
 The VPS procedure is [`deploy/factory/README.md`](deploy/factory/README.md). It does not publish the headless terminal.
 

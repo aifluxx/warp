@@ -31,5 +31,5 @@
 
 ## Notes
 
-- Spec 002 is the next number after 001. No open pull request held another number.
+- Spec 002 stays the number for this feature. The hosted domain was corrected in this file. No later spec was opened.
 - Parent browser sign-in (SC-004) remains open. This session does not publish the name.

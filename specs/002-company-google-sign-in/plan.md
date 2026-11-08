@@ -48,7 +48,7 @@ deploy/factory/README.md
 
 ## Residual dependency
 
-Google must be configured by the parent in the existing company cloud project: client id, client secret, and redirect URLs `http://127.0.0.1:8792/callback` and `https://factory.aifluxx.co.za/callback`. The app refuses to start company sign-in without `FACTORY_ALLOWED_DOMAIN`. Warp's hosted agent, Drive, and proprietary factories are not contacted.
+The parent creates one new Google web client in the existing company cloud project. The factory redirect URLs are `http://127.0.0.1:8792/callback` and `https://factory.aifluxx.co.za/callback`. `FACTORY_ALLOWED_DOMAIN` is `aifluxx.com`. The process listens on `127.0.0.1:8792` only. Existing production clients stay unchanged. Warp's hosted agent, Drive, and proprietary factories are not contacted.
 
 ## Skill & Tool Mapping *(mandatory — Constitution VII)*
 

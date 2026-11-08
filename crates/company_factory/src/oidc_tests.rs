@@ -25,54 +25,61 @@ fn person(email: Option<&str>, hosted: Option<&str>, verified: bool) -> Identity
 fn only_the_company_domain_is_accepted() {
     assert!(
         company_domain_allowed(
-            &person(Some("a@aifluxx.co.za"), Some("aifluxx.co.za"), true),
-            "aifluxx.co.za",
+            &person(Some("a@aifluxx.com"), Some("aifluxx.com"), true),
+            "aifluxx.com",
         )
         .is_ok()
     );
     assert!(
         company_domain_allowed(
-            &person(Some("person@gmail.com"), None, true),
-            "aifluxx.co.za",
+            &person(Some("a@aifluxx.co.za"), Some("aifluxx.co.za"), true),
+            "aifluxx.com",
         )
         .is_err()
+    );
+    assert!(
+        company_domain_allowed(
+            &person(Some("a@aifluxx.com"), Some("aifluxx.co.za"), true),
+            "aifluxx.com",
+        )
+        .is_err()
+    );
+    assert!(
+        company_domain_allowed(&person(Some("person@gmail.com"), None, true), "aifluxx.com",)
+            .is_err()
     );
     assert!(
         company_domain_allowed(
             &person(Some("person@gmail.com"), Some("gmail.com"), true),
-            "aifluxx.co.za",
+            "aifluxx.com",
         )
         .is_err()
     );
     assert!(
         company_domain_allowed(
-            &person(Some("a@evil.aifluxx.co.za"), Some("aifluxx.co.za"), true),
-            "aifluxx.co.za",
+            &person(Some("a@evil.aifluxx.com"), Some("aifluxx.com"), true),
+            "aifluxx.com",
         )
         .is_err()
     );
     assert!(
         company_domain_allowed(
-            &person(
-                Some("a@aifluxx.co.za.evil.com"),
-                Some("aifluxx.co.za"),
-                true
-            ),
-            "aifluxx.co.za",
+            &person(Some("a@aifluxx.com.evil.com"), Some("aifluxx.com"), true),
+            "aifluxx.com",
         )
         .is_err()
     );
     assert!(
         company_domain_allowed(
-            &person(Some("a@aifluxx.co.za"), Some("aifluxx.co.za"), false),
-            "aifluxx.co.za",
+            &person(Some("a@aifluxx.com"), Some("aifluxx.com"), false),
+            "aifluxx.com",
         )
         .is_err()
     );
     assert!(
         company_domain_allowed(
-            &person(Some("a@b@aifluxx.co.za"), Some("aifluxx.co.za"), true,),
-            "aifluxx.co.za",
+            &person(Some("a@b@aifluxx.com"), Some("aifluxx.com"), true),
+            "aifluxx.com",
         )
         .is_err()
     );

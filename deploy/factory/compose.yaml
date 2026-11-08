@@ -3,11 +3,11 @@
 # Isolated from aifluxx-dev, aifluxx-enterprise-dev, and warp-oss-tui:
 #   project name: company-factory
 #   container:    company-factory
-#   published:    127.0.0.1:8792 -> container 8792
+#   listen:       127.0.0.1:8792 on the VPS, via the host network
 #
 # Port 8791 is the headless terminal and is not part of this file.
 # Nothing here binds 80 or 443. The existing HTTPS proxy on the VPS
-# forwards factory.aifluxx.co.za to 127.0.0.1:8792.
+# forwards factory.aifluxx.co.za to http://127.0.0.1:8792.
 
 name: company-factory
 
@@ -25,14 +25,11 @@ services:
     pids_limit: 256
     security_opt:
       - no-new-privileges:true
-    ports:
-      - "127.0.0.1:8792:8792"
+    network_mode: host
     env_file:
       - .env
     volumes:
       - company-factory-repo:/srv/factory-repo:ro
-    networks:
-      - company-factory
     healthcheck:
       test:
         [
@@ -48,10 +45,6 @@ services:
     labels:
       org.aifluxx.stack: company-factory
       org.aifluxx.service: company-factory
-
-networks:
-  company-factory:
-    name: company-factory-net
 
 volumes:
   company-factory-repo:

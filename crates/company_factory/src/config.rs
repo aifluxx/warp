@@ -75,6 +75,7 @@ impl Config {
                 message: "directory does not exist".to_string(),
             });
         }
+        validate_bind(bind)?;
         let (oidc, allowed_domain) = match sign_in {
             Some(sign_in) => {
                 validate_oidc(&sign_in.oidc)?;
@@ -249,7 +250,7 @@ fn validate_domain(domain: &str) -> Result<String, ConfigError> {
     if !plain {
         return Err(ConfigError::Invalid {
             name: "FACTORY_ALLOWED_DOMAIN",
-            message: "use the company domain, such as aifluxx.co.za".to_string(),
+            message: "use the company hosted domain, such as aifluxx.com".to_string(),
         });
     }
     Ok(domain)
@@ -272,7 +273,34 @@ fn validate_oidc(oidc: &OidcConfig) -> Result<(), ConfigError> {
             message: "client id is empty".to_string(),
         });
     }
+    if google_issuer(&issuer)
+        && oidc
+            .client_secret
+            .as_deref()
+            .is_none_or(|secret| secret.is_empty())
+    {
+        return Err(ConfigError::Invalid {
+            name: "OIDC_CLIENT_SECRET",
+            message: "a dedicated Google web client requires its own secret".to_string(),
+        });
+    }
     Ok(())
+}
+
+fn validate_bind(bind: SocketAddr) -> Result<(), ConfigError> {
+    if bind.ip().is_loopback() {
+        return Ok(());
+    }
+    Err(ConfigError::Invalid {
+        name: "FACTORY_BIND",
+        message: "listen on 127.0.0.1 only; the reverse proxy is the public path".to_string(),
+    })
+}
+
+fn google_issuer(issuer: &Url) -> bool {
+    issuer
+        .host_str()
+        .is_some_and(|host| host.eq_ignore_ascii_case("accounts.google.com"))
 }
 
 #[cfg(test)]

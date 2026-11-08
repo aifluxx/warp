@@ -388,7 +388,12 @@ fn wants_json(headers: &HeaderMap) -> bool {
 }
 
 fn not_configured(headers: &HeaderMap) -> Response {
-    let missing = ["OIDC_ISSUER", "OIDC_CLIENT_ID"];
+    let missing = [
+        "OIDC_ISSUER",
+        "OIDC_CLIENT_ID",
+        "OIDC_CLIENT_SECRET",
+        "FACTORY_ALLOWED_DOMAIN",
+    ];
     if wants_json(headers) {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -404,7 +409,7 @@ fn not_configured(headers: &HeaderMap) -> Response {
         None,
         page(
             "Sign-in is not configured",
-            "<p>Company sign-in needs OIDC_ISSUER and OIDC_CLIENT_ID from the operator. No account was created.</p>",
+            "<p>Company sign-in needs OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and FACTORY_ALLOWED_DOMAIN from a new Google web client. No account was created.</p>",
         ),
     )
 }
