@@ -32,7 +32,7 @@
 **Purpose**: Give this pull request a check without starting Warp CI.
 
 - [x] T007 Add `fmt`, Clippy, and `cargo test -p company_factory` in `.github/workflows/company-factory.yml`
-- [ ] T008 The Company factory check on this pull request is green
+- [x] T008 The Company factory check on this pull request is green (`fmt, clippy, and test`, run 42470599197)
 
 ## Notes
 
