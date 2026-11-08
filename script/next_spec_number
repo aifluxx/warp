@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Print the next three-digit SpecKit number for this warp repository.
+# Numbers come from specs/NNN-* on origin/master, the current tree, and
+# files in open pull requests. This repository does not use Dubai DEV
+# or Jira numbers.
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+collect_names() {
+  git ls-tree -d --name-only origin/master specs 2>/dev/null || true
+  git ls-tree -d --name-only HEAD specs 2>/dev/null || true
+  if [ -d specs ]; then
+    find specs -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+  fi
+  if command -v gh >/dev/null 2>&1; then
+    gh pr list --repo aifluxx/warp --state open --limit 100 --json number --jq '.[].number' 2>/dev/null \
+      | while read -r number; do
+          [ -n "$number" ] || continue
+          gh api --paginate "repos/aifluxx/warp/pulls/${number}/files" --jq '.[].filename' 2>/dev/null || true
+        done
+  fi
+}
+
+max=0
+while read -r line; do
+  if [[ "$line" =~ (^|/)([0-9]{3})([^0-9]|$) ]]; then
+    value=$((10#${BASH_REMATCH[2]}))
+    if (( value > max )); then
+      max=$value
+    fi
+  fi
+done < <(collect_names)
+
+printf '%03d\n' $((max + 1))

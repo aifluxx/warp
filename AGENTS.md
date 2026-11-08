@@ -250,3 +250,11 @@ if FeatureFlag::YourNewFeature.is_enabled() {
 ### Exhaustive Matching
 
 When adding/editing match statements, avoid using the wildcard _ when at all possible. Exhaustive matching is helpful for ensuring that all variants are handled, especially when adding new variants to enums in the future.
+
+## SpecKit
+
+Canonical templates live in `.agent/` and `.specify/templates/`. Their hashes are in `.agent/PROVENANCE.md`. Do not edit those template bytes.
+
+Before planning or coding a new spec, read `.agent/WARP-NUMBERING.md` and run `script/next_spec_number`. Specs in this repository are `specs/NNN-short-name/`. Do not allocate Dubai `DEV-` numbers and do not call `backend/scripts/get_next_jira_number.py`.
+
+Copying the workflow file does not mean `/speckit.specify` is installed. Say the runtime is configured only after a session has run that workflow and the new directory number matches the script.
