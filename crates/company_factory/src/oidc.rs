@@ -14,6 +14,8 @@ use crate::config::LOGIN_TTL;
 pub struct Identity {
     pub sub: String,
     pub email: Option<String>,
+    pub email_verified: bool,
+    pub hosted_domain: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +90,7 @@ pub fn authorization_url(
     redirect_url: &str,
     state: &str,
     challenge: &str,
+    hosted_domain: &str,
 ) -> Result<String, OidcError> {
     let mut url =
         reqwest::Url::parse(&discovery.authorization_endpoint).map_err(|_| OidcError::Discovery)?;
@@ -98,8 +101,48 @@ pub fn authorization_url(
         .append_pair("scope", "openid email")
         .append_pair("state", state)
         .append_pair("code_challenge", challenge)
-        .append_pair("code_challenge_method", "S256");
+        .append_pair("code_challenge_method", "S256")
+        .append_pair("hd", hosted_domain);
     Ok(url.to_string())
+}
+
+/// Accept only a verified address in the configured company domain.
+///
+/// `hd` on the authorization request is only a hint. The token must carry the
+/// same hosted domain, and the email domain must match it. A personal Google
+/// account has no hosted domain and is refused.
+pub fn company_domain_allowed(identity: &Identity, allowed_domain: &str) -> Result<(), OidcError> {
+    let Some(hosted) = identity.hosted_domain.as_deref() else {
+        return Err(OidcError::Untrusted);
+    };
+    if !same_domain(hosted, allowed_domain) {
+        return Err(OidcError::Untrusted);
+    }
+    if !identity.email_verified {
+        return Err(OidcError::Untrusted);
+    }
+    let Some(email) = identity.email.as_deref() else {
+        return Err(OidcError::Untrusted);
+    };
+    let Some(domain) = email_domain(email) else {
+        return Err(OidcError::Untrusted);
+    };
+    if !same_domain(domain, allowed_domain) || !same_domain(domain, hosted) {
+        return Err(OidcError::Untrusted);
+    }
+    Ok(())
+}
+
+fn same_domain(left: &str, right: &str) -> bool {
+    !left.is_empty() && left.eq_ignore_ascii_case(right)
+}
+
+fn email_domain(email: &str) -> Option<&str> {
+    let (local, domain) = email.split_once('@')?;
+    if local.is_empty() || domain.is_empty() || domain.contains('@') {
+        return None;
+    }
+    Some(domain)
 }
 
 pub async fn discover(http: &reqwest::Client, issuer: &str) -> Result<Discovery, OidcError> {
@@ -202,6 +245,8 @@ pub fn verify_id_token(
     Ok(Identity {
         sub: data.claims.sub,
         email: data.claims.email.filter(|email| !email.is_empty()),
+        email_verified: data.claims.email_verified.unwrap_or(false),
+        hosted_domain: data.claims.hd.filter(|domain| !domain.is_empty()),
     })
 }
 
@@ -233,6 +278,8 @@ struct Jwks {
 struct IdClaims {
     sub: String,
     email: Option<String>,
+    email_verified: Option<bool>,
+    hd: Option<String>,
 }
 
 #[cfg(test)]

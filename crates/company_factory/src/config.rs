@@ -14,6 +14,13 @@ pub struct OidcConfig {
     pub client_secret: Option<String>,
 }
 
+/// Company sign-in. The domain is required whenever the provider is set.
+#[derive(Clone)]
+pub struct CompanySignIn {
+    pub oidc: OidcConfig,
+    pub allowed_domain: String,
+}
+
 /// Runtime settings. Secrets are omitted from debug output.
 #[derive(Clone)]
 pub struct Config {
@@ -22,6 +29,7 @@ pub struct Config {
     pub session_secret: Vec<u8>,
     pub cookie_secure: bool,
     pub oidc: Option<OidcConfig>,
+    pub allowed_domain: Option<String>,
     pub repo_id: String,
     pub repo_root: PathBuf,
 }
@@ -34,6 +42,7 @@ impl std::fmt::Debug for Config {
             .field("public_url", &self.public_url)
             .field("cookie_secure", &self.cookie_secure)
             .field("oidc_configured", &self.oidc.is_some())
+            .field("allowed_domain", &self.allowed_domain)
             .field("repo_id", &self.repo_id)
             .field("repo_root", &self.repo_root)
             .finish_non_exhaustive()
@@ -54,7 +63,7 @@ impl Config {
         public_url: Url,
         session_secret: Vec<u8>,
         cookie_secure: bool,
-        oidc: Option<OidcConfig>,
+        sign_in: Option<CompanySignIn>,
         repo_id: String,
         repo_root: PathBuf,
     ) -> Result<Self, ConfigError> {
@@ -66,9 +75,15 @@ impl Config {
                 message: "directory does not exist".to_string(),
             });
         }
-        if let Some(oidc) = &oidc {
-            validate_oidc(oidc)?;
-        }
+        validate_bind(bind)?;
+        let (oidc, allowed_domain) = match sign_in {
+            Some(sign_in) => {
+                validate_oidc(&sign_in.oidc)?;
+                let domain = validate_domain(&sign_in.allowed_domain)?;
+                (Some(sign_in.oidc), Some(domain))
+            }
+            None => (None, None),
+        };
         let mut public_url = public_url;
         public_url.set_query(None);
         public_url.set_fragment(None);
@@ -79,12 +94,14 @@ impl Config {
                     message: error.to_string(),
                 }
             })?;
+        let cookie_secure = cookie_secure || public_url.scheme() == "https";
         Ok(Self {
             bind,
             public_url,
             session_secret,
             cookie_secure,
             oidc,
+            allowed_domain,
             repo_id,
             repo_root,
         })
@@ -169,12 +186,27 @@ impl Config {
                 });
             }
         };
+        let allowed_domain = std::env::var("FACTORY_ALLOWED_DOMAIN")
+            .ok()
+            .filter(|value| !value.is_empty());
+        let sign_in = match (oidc, allowed_domain) {
+            (Some(oidc), Some(allowed_domain)) => Some(CompanySignIn {
+                oidc,
+                allowed_domain,
+            }),
+            (Some(_), None) => {
+                return Err(ConfigError::Incomplete {
+                    missing: vec!["FACTORY_ALLOWED_DOMAIN"],
+                });
+            }
+            (None, _) => None,
+        };
         Self::new(
             bind,
             public_url,
             secret,
             cookie_secure,
-            oidc,
+            sign_in,
             repo_id,
             PathBuf::from(repo_root),
         )
@@ -205,6 +237,25 @@ fn validate_repo_id(repo_id: &str) -> Result<(), ConfigError> {
     Ok(())
 }
 
+fn validate_domain(domain: &str) -> Result<String, ConfigError> {
+    let domain = domain.trim().to_ascii_lowercase();
+    let plain = domain.len() >= 3
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && !domain.contains("..")
+        && domain.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '.' || character == '-'
+        });
+    if !plain {
+        return Err(ConfigError::Invalid {
+            name: "FACTORY_ALLOWED_DOMAIN",
+            message: "use the company hosted domain, such as aifluxx.com".to_string(),
+        });
+    }
+    Ok(domain)
+}
+
 fn validate_oidc(oidc: &OidcConfig) -> Result<(), ConfigError> {
     let issuer = Url::parse(&oidc.issuer).map_err(|error| ConfigError::Invalid {
         name: "OIDC_ISSUER",
@@ -222,7 +273,34 @@ fn validate_oidc(oidc: &OidcConfig) -> Result<(), ConfigError> {
             message: "client id is empty".to_string(),
         });
     }
+    if google_issuer(&issuer)
+        && oidc
+            .client_secret
+            .as_deref()
+            .is_none_or(|secret| secret.is_empty())
+    {
+        return Err(ConfigError::Invalid {
+            name: "OIDC_CLIENT_SECRET",
+            message: "a dedicated Google web client requires its own secret".to_string(),
+        });
+    }
     Ok(())
+}
+
+fn validate_bind(bind: SocketAddr) -> Result<(), ConfigError> {
+    if bind.ip().is_loopback() {
+        return Ok(());
+    }
+    Err(ConfigError::Invalid {
+        name: "FACTORY_BIND",
+        message: "listen on 127.0.0.1 only; the reverse proxy is the public path".to_string(),
+    })
+}
+
+fn google_issuer(issuer: &Url) -> bool {
+    issuer
+        .host_str()
+        .is_some_and(|host| host.eq_ignore_ascii_case("accounts.google.com"))
 }
 
 #[cfg(test)]

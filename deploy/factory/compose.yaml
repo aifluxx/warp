@@ -1,0 +1,51 @@
+# Company factory page for the AIFluxx VPS.
+#
+# Isolated from aifluxx-dev, aifluxx-enterprise-dev, and warp-oss-tui:
+#   project name: company-factory
+#   container:    company-factory
+#   listen:       127.0.0.1:8792 on the VPS, via the host network
+#
+# Port 8791 is the headless terminal and is not part of this file.
+# Nothing here binds 80 or 443. The existing HTTPS proxy on the VPS
+# forwards factory.aifluxx.co.za to http://127.0.0.1:8792.
+
+name: company-factory
+
+services:
+  company-factory:
+    build:
+      context: ../..
+      dockerfile: deploy/factory/Dockerfile
+    image: company-factory:1
+    container_name: company-factory
+    restart: unless-stopped
+    init: true
+    mem_limit: 256m
+    cpus: 0.50
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - company-factory-repo:/srv/factory-repo:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8792/healthz",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      org.aifluxx.stack: company-factory
+      org.aifluxx.service: company-factory
+
+volumes:
+  company-factory-repo:
+    name: company-factory-repo
