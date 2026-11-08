@@ -31,5 +31,5 @@
 
 ## Notes
 
-- Spec 002 stays the number for this feature. The hosted domain was corrected in this file. No later spec was opened.
+- Spec 002 stays the number for this feature. The hosted domain was corrected in this file. No later spec was opened. Task evidence is `tasks.md`.
 - Parent browser sign-in (SC-004) remains open. This session does not publish the name.

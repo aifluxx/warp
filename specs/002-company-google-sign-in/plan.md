@@ -12,7 +12,7 @@ Keep the company factory page. Require Google's standard identity issuer, RS256 
 **Language/Version**: Rust edition 2024  
 **Primary Dependencies**: Existing `company_factory` crate  
 **Storage**: Process memory. No database.  
-**Testing**: `cargo test -p company_factory` and Clippy for that package. The outsider account is a labelled fixture token, not a production Google login.  
+**Testing**: `cargo test -p company_factory` and Clippy for that package, also run by `.github/workflows/company-factory.yml` on `aifluxx/warp` pull requests. The outsider account is a labelled fixture token, not a production Google login.  
 **Target Platform**: Linux container on the existing VPS, published only on `127.0.0.1:8792`  
 **Project Type**: Small workspace crate plus `deploy/factory`  
 **Performance Goals**: One company page for the operator's team  
@@ -31,6 +31,7 @@ No SpecKit constitution file is in this repository. Dubai-agents registries name
 specs/002-company-google-sign-in/
 ├── spec.md
 ├── plan.md
+├── tasks.md
 └── checklists/requirements.md
 ```
 
