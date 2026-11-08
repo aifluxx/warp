@@ -69,6 +69,8 @@ __pycache__/
 
 # Local VPS deploy env. Copy from deploy/vps/.env.example.
 deploy/vps/.env
+# Local company-factory env. Copy from deploy/factory/.env.example.
+deploy/factory/.env
 
 # Project notes
 .note/

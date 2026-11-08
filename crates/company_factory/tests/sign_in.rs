@@ -18,7 +18,7 @@ use axum::{
     routing::{get, post},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use company_factory::{Config, OidcConfig};
+use company_factory::{CompanySignIn, Config, OidcConfig};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use rsa::{RsaPrivateKey, pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts};
 use serde::Serialize;
@@ -34,6 +34,7 @@ const PLATFORM_KEY: &str = "sk-platform-must-not-be-used";
 struct Issued {
     sub: String,
     email: String,
+    hd: String,
     challenge: String,
 }
 
@@ -107,6 +108,7 @@ struct AuthorizeQuery {
     code_challenge: String,
     login_hint: Option<String>,
     email: Option<String>,
+    hd: Option<String>,
 }
 
 async fn authorize(
@@ -119,15 +121,15 @@ async fn authorize(
     let sub = query
         .login_hint
         .unwrap_or_else(|| "fixture-alice".to_string());
-    let email = query
-        .email
-        .unwrap_or_else(|| format!("{sub}@fixture.example"));
+    let email = query.email.unwrap_or_else(|| format!("{sub}@example.com"));
+    let hd = query.hd.unwrap_or_else(|| "example.com".to_string());
     let code = format!("code-{sub}-{}", state.codes.lock().unwrap().len());
     state.codes.lock().unwrap().insert(
         code.clone(),
         Issued {
             sub,
             email,
+            hd,
             challenge: query.code_challenge,
         },
     );
@@ -169,6 +171,8 @@ async fn token(State(state): State<Arc<FixtureState>>, Form(form): Form<TokenFor
     let claims = TokenClaims {
         sub: issued.sub,
         email: issued.email,
+        hd: issued.hd,
+        email_verified: true,
         iss: state.issuer.clone(),
         aud: CLIENT_ID.to_string(),
         iat: now,
@@ -194,6 +198,8 @@ async fn token(State(state): State<Arc<FixtureState>>, Form(form): Form<TokenFor
 struct TokenClaims {
     sub: String,
     email: String,
+    hd: String,
+    email_verified: bool,
     iss: String,
     aud: String,
     iat: u64,
@@ -211,17 +217,20 @@ async fn start(root: &std::path::Path, oidc_issuer: Option<&str>) -> Harness {
     let addr = probe.local_addr().unwrap();
     drop(probe);
     let public = format!("http://{addr}");
-    let oidc = oidc_issuer.map(|issuer| OidcConfig {
-        issuer: issuer.to_string(),
-        client_id: CLIENT_ID.to_string(),
-        client_secret: Some(CLIENT_SECRET.to_string()),
+    let sign_in = oidc_issuer.map(|issuer| CompanySignIn {
+        oidc: OidcConfig {
+            issuer: issuer.to_string(),
+            client_id: CLIENT_ID.to_string(),
+            client_secret: Some(CLIENT_SECRET.to_string()),
+        },
+        allowed_domain: "example.com".to_string(),
     });
     let config = Config::new(
         addr,
         reqwest::Url::parse(&public).unwrap(),
         b"test-session-secret-is-32-bytes!".to_vec(),
         false,
-        oidc,
+        sign_in,
         "warp".to_string(),
         root.to_path_buf(),
     )
@@ -315,7 +324,52 @@ async fn unsigned_requests_are_refused_when_sign_in_is_not_configured() {
         .await
         .unwrap();
     assert_eq!(logout.status(), StatusCode::METHOD_NOT_ALLOWED);
+    let health = harness
+        .client
+        .get(format!("{}/healthz", harness.addr))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(health.status(), StatusCode::OK);
     harness.server.shutdown().await;
+}
+
+async fn outsider_is_refused(harness: &Harness) -> StatusCode {
+    let login = harness
+        .client
+        .get(format!("{}/login", harness.addr))
+        .send()
+        .await
+        .unwrap();
+    let authorize =
+        reqwest::Url::parse(login.headers().get("location").unwrap().to_str().unwrap()).unwrap();
+    let mut pairs: Vec<(String, String)> = authorize
+        .query_pairs()
+        .filter(|(name, _)| name != "hd" && name != "email" && name != "login_hint")
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+        .collect();
+    pairs.push(("hd".to_string(), "gmail.com".to_string()));
+    pairs.push(("email".to_string(), "outsider@gmail.com".to_string()));
+    pairs.push(("login_hint".to_string(), "outsider".to_string()));
+    let mut authorize = authorize;
+    authorize.set_query(None);
+    {
+        let mut query = authorize.query_pairs_mut();
+        for (name, value) in &pairs {
+            query.append_pair(name, value);
+        }
+    }
+    let consented = harness.client.get(authorize).send().await.unwrap();
+    let callback = consented
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let refused = harness.client.get(callback).send().await.unwrap();
+    assert!(refused.headers().get("set-cookie").is_none());
+    refused.status()
 }
 
 #[tokio::test]
@@ -339,6 +393,9 @@ async fn fixture_provider_sign_in_is_isolated_and_distinct_from_warp() {
     assert!(home.contains("Not Warp Factories"));
     assert!(home.contains("Not the Warp contributions dashboard"));
     assert!(!home.contains("ttyd"));
+
+    let outsider = outsider_is_refused(&harness).await;
+    assert_eq!(outsider, StatusCode::UNAUTHORIZED);
 
     let alice = sign_in(&harness, "fixture-alice", "a<b>@example.com").await;
     let page = harness
