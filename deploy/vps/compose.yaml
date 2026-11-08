@@ -1,0 +1,67 @@
+# Headless Warp TUI for the AIFluxx Hostinger VPS.
+#
+# Isolated from the existing aifluxx-dev and aifluxx-enterprise-dev stacks:
+#   project name:  warp-oss
+#   container:     warp-oss-tui
+#   network:       warp-oss-net
+#   volume:        warp-oss-tui-state
+#   published port: 127.0.0.1:8791 -> container 7681
+#
+# Nothing is published on 80, 443, 3000, 5173, 5432, 6379, 8000, or 8080.
+
+name: warp-oss
+
+services:
+  warp-tui:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+      args:
+        WARP_CARGO_PROFILE: ${WARP_CARGO_PROFILE:-release-tui}
+        CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
+    image: warp-oss-tui:1
+    container_name: warp-oss-tui
+    restart: unless-stopped
+    init: true
+    mem_limit: ${WARP_TUI_MEM_LIMIT:-1g}
+    mem_reservation: 256m
+    cpus: ${WARP_TUI_CPUS:-1.0}
+    pids_limit: 512
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:${WARP_TUI_PORT:-8791}:${TTYD_PORT:-7681}"
+    environment:
+      WARP_API_KEY: ${WARP_API_KEY:-}
+      TTYD_USERNAME: ${TTYD_USERNAME:-}
+      TTYD_PASSWORD: ${TTYD_PASSWORD:-}
+      TTYD_PORT: ${TTYD_PORT:-7681}
+      LANG: C.UTF-8
+      TERM: xterm-256color
+    volumes:
+      - warp-oss-tui-state:/var/lib/warp-tui
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    networks:
+      - warp-oss
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "code=$$(curl -s -o /dev/null -w '%{http_code}' \"http://127.0.0.1:$${TTYD_PORT:-7681}/\"); test \"$$code\" = \"200\" -o \"$$code\" = \"401\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      org.aifluxx.stack: warp-oss
+      org.aifluxx.service: warp-tui
+
+networks:
+  warp-oss:
+    name: warp-oss-net
+
+volumes:
+  warp-oss-tui-state:
+    name: warp-oss-tui-state

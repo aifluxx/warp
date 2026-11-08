@@ -80,6 +80,90 @@ To build and run Warp from source:
 
 See [AGENTS.md](AGENTS.md) for the full engineering guide, including coding style, testing, and platform-specific notes.
 
+## Self-hosting the headless TUI
+
+This repository is the Warp **client**. The files under [`deploy/vps/`](deploy/vps/) run the headless open-source terminal, `warp-tui-oss`, in Docker. That is the piece that can run on a Linux server. The setup was written for the AIFluxx Hostinger VPS `srv1307450.hstgr.cloud` (Ubuntu, Docker, the `aifluxx-dev` and `aifluxx-enterprise-dev` stacks already running). It does not deploy anything by itself.
+
+### What this stack runs
+
+- One container, `warp-oss-tui`, on the Compose project `warp-oss`.
+- The `warp-tui-oss` binary (headless Warp Agent CLI) behind `ttyd`, bound to `127.0.0.1:8791` on the host and port `7681` in the container.
+- A named volume, `warp-oss-tui-state`, for TUI config and local data.
+- A private network, `warp-oss-net`.
+
+Runtime cap in the example env: **1 GB RAM**, **1 CPU**, at most two web-terminal clients. The container name, network, volume, and port are deliberately different from the existing aifluxx stacks, and the port is not 80, 443, 3000, 5173, 5432, 6379, 8000, or 8080.
+
+`docker/linux-dev/` is a desktop build container (SSH and X11). It is not this service.
+
+### What cannot be self-hosted from this repo
+
+- **warp-server** (accounts, GraphQL, the agent backend, Warp Drive, real-time sync, session sharing) is not in this repository. The OSS TUI is compiled against Warp's hosted service (`app.warp.dev` and the related RTC and session endpoints). A `WARP_API_KEY` logs this client into that hosted service. It does not start a replacement server.
+- **Oz** (`oz.warp.dev`, ambient agents) is not in this repository.
+- **`WITH_LOCAL_SERVER` / `SERVER_ROOT_URL`** in [AGENTS.md](AGENTS.md) only redirects a developer build at a warp-server checkout you already have. This fork does not contain that server, and the VPS compose file does not set those variables.
+- **The GUI desktop app** (`./script/run`, `cargo run`) needs a display and GPU drivers. It is the wrong process for this headless box and is not part of the compose stack.
+- Login, cloud agents, Drive sync, and team features stay unavailable until the client can reach Warp's cloud with a real Warp account. An empty VPS will show the TUI login screen and will not gain those features by being rebuilt.
+
+### Resources
+
+| Phase | RAM | Disk | CPU |
+| --- | --- | --- | --- |
+| Image build (`release-tui`) | Several GB free. Thin LTO can spike higher. Use `CARGO_BUILD_JOBS=1` or `WARP_CARGO_PROFILE=dev` if the kernel OOM-killer fires. | The verification build used about 11 GB of BuildKit cache and produced a 566 MB image. Do this on a machine with room, not on a host that is already at 66% RAM with 76 GB free. | 2 rustc jobs by default |
+| Running container | Limit 1 GB, reservation 256 MB. Idle use after the welcome screen was about 16 MB. | The 566 MB image plus a few MB on `warp-oss-tui-state` after first launch. Loading the image does not need the build cache. | Limit 1 |
+
+Do not build the image on `srv1307450` while aifluxx is up. Build it somewhere with at least 8 GB of free RAM and 40 GB of free disk, then load the image on the VPS.
+
+### Install and run
+
+On the build machine, from this repository:
+
+```bash
+cd deploy/vps
+cp .env.example .env
+docker compose build
+docker save warp-oss-tui:1 | gzip > warp-oss-tui-1.tar.gz
+```
+
+Copy `warp-oss-tui-1.tar.gz` and this `deploy/vps/` directory to the VPS. On the VPS, as a user who can run Docker:
+
+```bash
+# Confirm the names and port are free before creating anything.
+docker ps -a --format '{{.Names}}' | grep -E 'warp-oss|aifluxx' || true
+ss -ltn | grep -E ':8791\b' || true
+
+gunzip -c warp-oss-tui-1.tar.gz | docker load
+cd deploy/vps
+cp .env.example .env
+docker compose up -d --no-build
+docker compose ps
+docker compose exec warp-tui /usr/local/bin/warp-oss-entrypoint version
+```
+
+`docker compose ps` should show `warp-oss-tui` healthy. From a laptop:
+
+```bash
+ssh -L 8791:127.0.0.1:8791 <user>@srv1307450.hstgr.cloud
+```
+
+Open `http://127.0.0.1:8791`. The page is a terminal running `warp-tui-oss`. With `WARP_API_KEY` left blank, the first screen says **Welcome to Warp**, **Log in with Warp**, and **Copy login URL**. That login talks to Warp's hosted service.
+
+The container has no desktop Secret Service. The TUI logs that once, then uses its on-disk credential fallback under the `warp-oss-tui-state` volume. A source build with no `GIT_RELEASE_TAG` prints version `v0.0.0.0.0.0`.
+
+Attach over SSH without the browser:
+
+```bash
+docker compose exec warp-tui /usr/local/bin/warp-oss-entrypoint tui
+```
+
+Stop it without touching the other stacks:
+
+```bash
+docker compose stop
+```
+
+`docker compose down` removes this stack's container and network. Add `-v` only when you also mean to delete the `warp-oss-tui-state` volume.
+
+Set `TTYD_USERNAME` and `TTYD_PASSWORD` in `.env` before exposing the port past localhost. The committed template leaves them empty and publishes on `127.0.0.1` only.
+
 ## Joining the Team
 
 Interested in joining the team? See our [open roles](https://www.warp.dev/careers).

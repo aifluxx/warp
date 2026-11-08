@@ -1,6 +1,11 @@
 # Don't include the git repository.
 .git
 
+# Local deploy env. .env.example is the committed template and must stay.
+.env
+**/.env
+deploy/vps/.env
+
 app/Carthage
 app/frameworks/default/Carthage
 app/frameworks/dev/Carthage

@@ -67,6 +67,9 @@ desired_behavior.md
 # Don't include the python cache for bundled skills.
 __pycache__/
 
+# Local VPS deploy env. Copy from deploy/vps/.env.example.
+deploy/vps/.env
+
 # Project notes
 .note/
 .claude/scheduled_tasks.lock
