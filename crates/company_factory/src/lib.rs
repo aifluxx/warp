@@ -10,5 +10,5 @@ mod oidc;
 mod repo;
 mod session;
 
-pub use config::{Config, ConfigError, OidcConfig};
+pub use config::{CompanySignIn, Config, ConfigError, OidcConfig};
 pub use http::{Server, serve};

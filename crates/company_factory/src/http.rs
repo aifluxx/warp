@@ -64,6 +64,7 @@ impl AppState {
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(home))
+        .route("/healthz", get(healthz))
         .route("/login", get(login))
         .route("/callback", get(callback))
         .route("/logout", post(logout))
@@ -93,6 +94,13 @@ pub async fn serve(config: Config) -> Result<Server, std::io::Error> {
     })
 }
 
+async fn healthz() -> Json<serde_json::Value> {
+    Json(json!({
+        "status": "ok",
+        "service": "aifluxx-company-factory",
+    }))
+}
+
 async fn home(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     let signed_in = state.sessions.read(cookie(&headers)).is_some();
     if wants_json(&headers) {
@@ -118,6 +126,9 @@ async fn login(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respon
     let Some(oidc) = state.config.oidc.clone() else {
         return not_configured(&headers);
     };
+    let Some(domain) = state.config.allowed_domain.clone() else {
+        return not_configured(&headers);
+    };
     let discovery = match load_discovery(&state, &oidc.issuer).await {
         Ok(discovery) => discovery,
         Err(_) => return bad_identity(&headers),
@@ -130,6 +141,7 @@ async fn login(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Respon
         &state.config.redirect_url(),
         &csrf,
         &challenge,
+        &domain,
     ) {
         Ok(redirect) => redirect,
         Err(_) => return bad_identity(&headers),
@@ -178,6 +190,12 @@ async fn callback(
             Ok(identity) => identity,
             Err(_) => return sign_in_refused(&headers),
         };
+    let Some(domain) = state.config.allowed_domain.as_deref() else {
+        return sign_in_refused(&headers);
+    };
+    if oidc::company_domain_allowed(&identity, domain).is_err() {
+        return sign_in_refused(&headers);
+    }
     let cookie = state
         .sessions
         .issue(identity.sub, identity.email, state.config.repo_id.clone());
@@ -371,7 +389,12 @@ fn wants_json(headers: &HeaderMap) -> bool {
 }
 
 fn not_configured(headers: &HeaderMap) -> Response {
-    let missing = ["OIDC_ISSUER", "OIDC_CLIENT_ID"];
+    let missing = [
+        "OIDC_ISSUER",
+        "OIDC_CLIENT_ID",
+        "OIDC_CLIENT_SECRET",
+        "FACTORY_ALLOWED_DOMAIN",
+    ];
     if wants_json(headers) {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -387,7 +410,7 @@ fn not_configured(headers: &HeaderMap) -> Response {
         None,
         page(
             "Sign-in is not configured",
-            "<p>Company sign-in needs OIDC_ISSUER and OIDC_CLIENT_ID from the operator. No account was created.</p>",
+            "<p>Company sign-in needs OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and FACTORY_ALLOWED_DOMAIN from a new Google web client. No account was created.</p>",
         ),
     )
 }
