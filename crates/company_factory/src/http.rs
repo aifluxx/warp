@@ -279,7 +279,8 @@ async fn set_byok(
             if wants_json(&headers) {
                 Json(json!({"configured": true, "fingerprint": fingerprint})).into_response()
             } else {
-                Redirect::temporary("/dashboard").into_response()
+                // 303 so the browser GETs the dashboard. A 307 would repeat this POST.
+                Redirect::to("/dashboard").into_response()
             }
         }
         Err(ByokError::TooShort | ByokError::Empty | ByokError::TooLong) => refused(

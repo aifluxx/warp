@@ -389,6 +389,20 @@ async fn fixture_provider_sign_in_is_isolated_and_distinct_from_warp() {
         .unwrap()
         .to_string();
 
+    let browser_save = harness
+        .client
+        .post(format!("{}/byok", harness.addr))
+        .header("cookie", &alice)
+        .form(&[("api_key", ALICE_KEY)])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(browser_save.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        browser_save.headers().get("location").unwrap(),
+        "/dashboard"
+    );
+
     let other_repo = harness
         .client
         .post(format!("{}/workspace/action", harness.addr))
